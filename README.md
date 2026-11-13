@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Game of Nim — Two-Player</title>
+  <title>Game of Nim — 1P vs Clanker & 2P</title>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -12,6 +12,7 @@
       --muted: #64748b;
       --p1: #2563eb;
       --p2: #db2777;
+      --bot: #7c3aed;
       --bean: #92400e;
       --bean-highlight: #b45309;
       --poison: #dc2626;
@@ -36,7 +37,7 @@
 
     .container {
       background: var(--card);
-      max-width: 600px;
+      max-width: 620px;
       width: 100%;
       padding: 2rem;
       border-radius: 16px;
@@ -45,7 +46,7 @@
     }
 
     h1 {
-      margin: 0 0 0.5rem;
+      margin: 0 0 0.4rem;
       font-size: 1.75rem;
       text-align: center;
     }
@@ -57,29 +58,33 @@
       font-size: 0.95rem;
     }
 
-    .mode-box {
+    .settings-box {
       background: #f8fafc;
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 1rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
     }
 
-    .mode-box label {
+    .setting-group label {
       display: block;
       font-weight: 600;
-      margin-bottom: 0.5rem;
-      font-size: 0.9rem;
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
+      color: var(--text);
     }
 
-    .mode-options {
+    .option-row {
       display: flex;
-      gap: 0.75rem;
+      gap: 0.6rem;
     }
 
-    .mode-btn {
+    .opt-btn {
       flex: 1;
-      padding: 0.6rem;
+      padding: 0.55rem 0.75rem;
       border: 2px solid var(--border);
       background: #fff;
       border-radius: 8px;
@@ -89,15 +94,27 @@
       transition: all 0.15s ease;
     }
 
-    .mode-btn.active {
+    .opt-btn.active {
       border-color: #0f172a;
       background: #0f172a;
       color: #fff;
     }
 
-    .mode-btn:disabled {
-      opacity: 0.6;
+    .opt-btn:disabled {
+      opacity: 0.55;
       cursor: not-allowed;
+    }
+
+    .bot-options {
+      display: none;
+      flex-direction: column;
+      gap: 0.9rem;
+      padding-top: 0.5rem;
+      border-top: 1px dashed var(--border);
+    }
+
+    .bot-options.visible {
+      display: flex;
     }
 
     .status-banner {
@@ -106,7 +123,7 @@
       border-radius: 10px;
       font-weight: 700;
       font-size: 1.1rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
       transition: background-color 0.2s ease;
     }
 
@@ -120,22 +137,33 @@
       color: var(--p2);
     }
 
+    .turn-bot {
+      background: #ede9fe;
+      color: var(--bot);
+    }
+
     .winner-banner {
       background: #dcfce7;
       color: #15803d;
-      font-size: 1.25rem;
+      font-size: 1.15rem;
+    }
+
+    .loser-banner {
+      background: #fee2e2;
+      color: #b91c1c;
+      font-size: 1.15rem;
     }
 
     .pile-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.6rem;
       font-weight: 600;
     }
 
     .pile-container {
-      min-height: 150px;
+      min-height: 145px;
       background: #fefce8;
       border: 2px dashed #fde047;
       border-radius: 12px;
@@ -145,7 +173,7 @@
       gap: 12px;
       justify-content: center;
       align-items: center;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
     }
 
     .bean {
@@ -154,7 +182,7 @@
       background: radial-gradient(circle at 30% 30%, var(--bean-highlight), var(--bean));
       border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
       box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
-      transition: transform 0.2s ease, opacity 0.2s ease;
+      transition: transform 0.2s ease;
     }
 
     .bean.poison-bean {
@@ -166,7 +194,7 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 0.75rem;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1rem;
     }
 
     .take-btn {
@@ -210,17 +238,17 @@
     }
 
     .log {
-      margin-top: 1.5rem;
+      margin-top: 1.25rem;
       border-top: 1px solid var(--border);
-      padding-top: 1rem;
+      padding-top: 0.9rem;
       font-size: 0.85rem;
       color: var(--muted);
-      max-height: 120px;
+      max-height: 130px;
       overflow-y: auto;
     }
 
     .log-entry {
-      margin-bottom: 0.3rem;
+      margin-bottom: 0.35rem;
     }
   </style>
 </head>
@@ -230,15 +258,41 @@
     <h1>Game of Nim</h1>
     <p class="subtitle">Take 1, 2, or 3 beans per turn from a single pile of 20.</p>
 
-    <div class="mode-box">
-      <label>Objective (Locked once the first move is made):</label>
-      <div class="mode-options">
-        <button id="modeNormal" class="mode-btn active" onclick="setMode('normal')">
-          Normal Play (Last Bean Wins)
-        </button>
-        <button id="modeMisere" class="mode-btn" onclick="setMode('misere')">
-          Misère / Poison (Last Bean Loses)
-        </button>
+    <div class="settings-box">
+      <!-- Opponent Mode -->
+      <div class="setting-group">
+        <label>Players:</label>
+        <div class="option-row">
+          <button id="opp2P" class="opt-btn active" onclick="setOpponent('2p')">2-Player Local</button>
+          <button id="oppBot" class="opt-btn" onclick="setOpponent('bot')">1P vs Clanker Bot 🤖</button>
+        </div>
+      </div>
+
+      <!-- Bot-Specific Options -->
+      <div id="botOptions" class="bot-options">
+        <div class="setting-group">
+          <label>Clanker Intelligence:</label>
+          <div class="option-row">
+            <button id="diffCasual" class="opt-btn active" onclick="setDifficulty('casual')">Casual Clanker</button>
+            <button id="diffSmart" class="opt-btn" onclick="setDifficulty('smart')">Unbeatable AI</button>
+          </div>
+        </div>
+        <div class="setting-group">
+          <label>Who Goes First:</label>
+          <div class="option-row">
+            <button id="firstHuman" class="opt-btn active" onclick="setFirstTurn('human')">You Go First</button>
+            <button id="firstBot" class="opt-btn" onclick="setFirstTurn('bot')">Clanker Goes First</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Win Objective -->
+      <div class="setting-group">
+        <label>Objective (Locked once play begins):</label>
+        <div class="option-row">
+          <button id="modeNormal" class="opt-btn active" onclick="setMode('normal')">Normal (Last Wins)</button>
+          <button id="modeMisere" class="opt-btn" onclick="setMode('misere')">Misère / Poison (Last Loses)</button>
+        </div>
       </div>
     </div>
 
@@ -253,9 +307,9 @@
     <div id="pileContainer" class="pile-container"></div>
 
     <div class="controls">
-      <button id="btn1" class="take-btn" onclick="takeBeans(1)">Take 1</button>
-      <button id="btn2" class="take-btn" onclick="takeBeans(2)">Take 2</button>
-      <button id="btn3" class="take-btn" onclick="takeBeans(3)">Take 3</button>
+      <button id="btn1" class="take-btn" onclick="handleHumanMove(1)">Take 1</button>
+      <button id="btn2" class="take-btn" onclick="handleHumanMove(2)">Take 2</button>
+      <button id="btn3" class="take-btn" onclick="handleHumanMove(3)">Take 3</button>
     </div>
 
     <button class="reset-btn" onclick="resetGame()">Restart Game</button>
@@ -266,106 +320,56 @@
   <script>
     const INITIAL_BEANS = 20;
     let beansRemaining = INITIAL_BEANS;
-    let currentPlayer = 1;
-    let gameMode = 'normal';
+    let currentPlayer = 1; // 1 = Player 1 / Human, 2 = Player 2 / Clanker
+    let opponentType = '2p'; // '2p' or 'bot'
+    let botDifficulty = 'casual'; // 'casual' or 'smart'
+    let firstTurn = 'human'; // 'human' or 'bot'
+    let gameMode = 'normal'; // 'normal' or 'misere'
     let gameStarted = false;
     let gameOver = false;
+    let botThinking = false;
+    let botTimer = null;
 
     const statusBanner = document.getElementById('statusBanner');
     const beanCountEl = document.getElementById('beanCount');
     const pileContainer = document.getElementById('pileContainer');
     const moveLog = document.getElementById('moveLog');
-    const modeNormalBtn = document.getElementById('modeNormal');
-    const modeMisereBtn = document.getElementById('modeMisere');
+    const botOptionsEl = document.getElementById('botOptions');
+
+    const settingButtons = [
+      document.getElementById('opp2P'),
+      document.getElementById('oppBot'),
+      document.getElementById('diffCasual'),
+      document.getElementById('diffSmart'),
+      document.getElementById('firstHuman'),
+      document.getElementById('firstBot'),
+      document.getElementById('modeNormal'),
+      document.getElementById('modeMisere')
+    ];
+
     const takeButtons = [
       document.getElementById('btn1'),
       document.getElementById('btn2'),
       document.getElementById('btn3')
     ];
 
-    function setMode(mode) {
+    function setOpponent(type) {
       if (gameStarted) return;
-      gameMode = mode;
-      modeNormalBtn.classList.toggle('active', mode === 'normal');
-      modeMisereBtn.classList.toggle('active', mode === 'misere');
-      render();
+      opponentType = type;
+      document.getElementById('opp2P').classList.toggle('active', type === '2p');
+      document.getElementById('oppBot').classList.toggle('active', type === 'bot');
+      botOptionsEl.classList.toggle('visible', type === 'bot');
+      resetGame();
     }
 
-    function takeBeans(amount) {
-      if (gameOver || amount > beansRemaining) return;
-
-      if (!gameStarted) {
-        gameStarted = true;
-        modeNormalBtn.disabled = true;
-        modeMisereBtn.disabled = true;
-      }
-
-      beansRemaining -= amount;
-      logMove(`Player ${currentPlayer} took ${amount} bean${amount > 1 ? 's' : ''}. (${beansRemaining} left)`);
-
-      if (beansRemaining === 0) {
-        gameOver = true;
-        const winner = gameMode === 'normal' ? currentPlayer : (currentPlayer === 1 ? 2 : 1);
-        const reason = gameMode === 'normal'
-          ? `Player ${currentPlayer} took the last bean and wins!`
-          : `Player ${currentPlayer} took the poison bean! Player ${winner} wins!`;
-
-        statusBanner.textContent = reason;
-        statusBanner.className = 'status-banner winner-banner';
-        logMove(`🏆 ${reason}`);
-      } else {
-        currentPlayer = currentPlayer === 1 ? 2 : 1;
-        statusBanner.textContent = `Player ${currentPlayer}'s Turn`;
-        statusBanner.className = `status-banner ${currentPlayer === 1 ? 'turn-p1' : 'turn-p2'}`;
-      }
-
-      render();
+    function setDifficulty(diff) {
+      if (gameStarted) return;
+      botDifficulty = diff;
+      document.getElementById('diffCasual').classList.toggle('active', diff === 'casual');
+      document.getElementById('diffSmart').classList.toggle('active', diff === 'smart');
     }
 
-    function render() {
-      beanCountEl.textContent = beansRemaining;
-
-      pileContainer.innerHTML = '';
-      for (let i = 0; i < beansRemaining; i++) {
-        const bean = document.createElement('div');
-        bean.className = 'bean';
-        if (gameMode === 'misere' && i === 0) {
-          bean.classList.add('poison-bean');
-          bean.title = 'Poison Bean (Last bean loses)';
-        }
-        pileContainer.appendChild(bean);
-      }
-
-      takeButtons.forEach((btn, index) => {
-        const takeAmount = index + 1;
-        btn.disabled = gameOver || takeAmount > beansRemaining;
-      });
-    }
-
-    function logMove(text) {
-      const entry = document.createElement('div');
-      entry.className = 'log-entry';
-      entry.textContent = text;
-      moveLog.prepend(entry);
-    }
-
-    function resetGame() {
-      beansRemaining = INITIAL_BEANS;
-      currentPlayer = 1;
-      gameStarted = false;
-      gameOver = false;
-
-      modeNormalBtn.disabled = false;
-      modeMisereBtn.disabled = false;
-
-      statusBanner.textContent = "Player 1's Turn";
-      statusBanner.className = 'status-banner turn-p1';
-      moveLog.innerHTML = '';
-
-      render();
-    }
-
-    render();
-  </script>
-</body>
-</html>
+    function setFirstTurn(who) {
+      if (gameStarted) return;
+      firstTurn = who;
+      document.getElementById('firstHuman').classList.toggle('active', who === 'human');
